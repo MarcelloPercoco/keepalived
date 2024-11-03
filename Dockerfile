@@ -6,7 +6,7 @@ LABEL MAINTAINER="Marcello Percoco <114474556+MarcelloPercoco@users.noreply.gith
 
 RUN apk update \
         && apk upgrade --no-cache \
-	&&apk add --no-cache \
+	&& apk add --no-cache \
 	bash       \
 	curl       \
 	ipvsadm    \

@@ -5,6 +5,7 @@ env:
   DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
   REPO_NAME: ${{ vars.REPO_NAME }}
   ALPINE_VERSION: ${{ vars.ALPINE_VERSION }}
+  KEEPALIVED_VERSION: ${{ vars.KEEPALIVED_VERSION }}
 
 on: workflow_dispatch
 
@@ -13,9 +14,9 @@ jobs: # job name
     runs-on: ubuntu-latest  # runner name : (ubuntu latest version)     
     steps:
       - uses: actions/checkout@v4 # first action : checkout source code
-      - name: take keepalived version
-        run: |
-          echo "KEEPALIVED_VERSION=$(docker run --rm docker.io/alpine:${ALPINE_VERSION} /bin/sh -c 'apk update -q && apk add keepalived -q && apk info keepalived | head -n 1' | sed -e 's/[^-]*-\(.*\) [^ ]*/\1/' )" >> $GITHUB_ENV
+#      - name: take keepalived version
+#        run: |
+#          echo "KEEPALIVED_VERSION=$(docker run --rm docker.io/alpine:${ALPINE_VERSION} /bin/sh -c 'apk update -q && apk add keepalived -q && apk info keepalived | head -n 1' | sed -e 's/[^-]*-\(.*\) [^ ]*/\1/' )" >> $GITHUB_ENV
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
         with:
@@ -34,6 +35,8 @@ jobs: # job name
         with:
           context: .
           tags: ${{ env.REPO_NAME }}:${{ env.KEEPALIVED_VERSION }},${{ env.REPO_NAME }}:latest
-          build-args: ALPINE_VERSION=${{ env.ALPINE_VERSION }}
+          build-args: |
+		ALPINE_VERSION=${{ env.ALPINE_VERSION }}
+		KEEPALIVED_VERSION=${{ env.KEEPALIVED_VERSION }}
           platforms: linux/arm/v7,linux/arm64,linux/amd64
           push: true

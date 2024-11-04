@@ -12,6 +12,7 @@ RUN apk update \
     bash \
     autoconf \
     curl \
+    libgcc \
     libip4tc \
     libip6tc \
     gcc \

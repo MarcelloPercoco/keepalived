@@ -36,7 +36,7 @@ jobs: # job name
           context: .
           tags: ${{ env.REPO_NAME }}:${{ env.KEEPALIVED_VERSION }},${{ env.REPO_NAME }}:latest
           build-args: |
-		ALPINE_VERSION=${{ env.ALPINE_VERSION }}
-		KEEPALIVED_VERSION=${{ env.KEEPALIVED_VERSION }}
+            ALPINE_VERSION=${{ env.ALPINE_VERSION }}
+            KEEPALIVED_VERSION=${{ env.KEEPALIVED_VERSION }}
           platforms: linux/arm/v7,linux/arm64,linux/amd64
           push: true

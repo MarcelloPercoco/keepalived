@@ -12,4 +12,4 @@ Latest release: 2.3.1 - Keepalived 2.3.1 - [Docker Hub](https://hub.docker.com/o
 
 Simple image with keepalived built from source, based on alpine 3.20
 
-link your config filein /usr/local/etc/keeplived.conf
+link your config file in /usr/local/etc/keeplived.conf

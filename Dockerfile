@@ -11,6 +11,7 @@ RUN apk update \
     && apk --no-cache add \
     bash \
     autoconf \
+    automake \
     curl \
     libgcc \
     libip4tc \
@@ -28,17 +29,20 @@ RUN apk update \
     musl-dev \
     openssl \
     openssl-dev \
-    && curl -o keepalived.tar.gz -SL http://keepalived.org/software/keepalived-${KEEPALIVED_VERSION}.tar.gz \
+    && curl -o keepalived.zip -SL https://github.com/acassen/keepalived/archive/refs/tags/v${KEEPALIVED_VERSION}.zip \
     && mkdir -p /container/keepalived-sources \
-    && tar -xzf keepalived.tar.gz --strip 1 -C /container/keepalived-sources \
-    && cd container/keepalived-sources \
+    && unzip keepalived.zip -d container/keepalived-sources\
+    && cd container/keepalived-sources/keepalived-${KEEPALIVED_VERSION} \
+    && /bin/bash ./autogen.sh \
     && /bin/bash ./configure --disable-dynamic-linking \
     && make && make install \
-    && rm -f /keepalived.tar.gz \
+    && cd \
     && rm -rf /container/keepalived-sources \
+    && rm -rf keepalived.zip \
     && apk --no-cache del \
     bash \ 
     autoconf \
+    automake \
     gcc \
     ipset-dev \
     iptables-dev \

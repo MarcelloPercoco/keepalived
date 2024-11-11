@@ -36,7 +36,7 @@ RUN apk update \
     && /bin/bash ./autogen.sh \
     && /bin/bash ./configure --disable-dynamic-linking \
     && make && make install \
-    && cd \
+    && cd / \
     && rm -rf /container/keepalived-sources \
     && rm -rf keepalived.zip \
     && apk --no-cache del \

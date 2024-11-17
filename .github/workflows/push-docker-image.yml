@@ -51,8 +51,8 @@ jobs: # job name
           context: .
           tags: |
             ${{ vars.REPO_NAME }}:latest
-            ${{ vars.REPO_NAME }}:${{ vars.KEEPALIVED_VERSION }}
-            ghcr.io/${{ env.IMAGE_NAME }}:${{ vars.KEEPALIVED_VERSION }}
+            ${{ vars.REPO_NAME }}:${{ env.KEEPALIVED_VERSION }}
+            ghcr.io/${{ env.IMAGE_NAME }}:${{ env.KEEPALIVED_VERSION }}
             ghcr.io/${{ env.IMAGE_NAME }}:latest
           build-args: |
             KEEPALIVED_VERSION=${{ env.KEEPALIVED_VERSION }}

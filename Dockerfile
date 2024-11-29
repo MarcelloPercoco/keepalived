@@ -3,19 +3,17 @@ ARG ALPINE_VERSION=3.20
 FROM alpine:${ALPINE_VERSION}
 
 COPY . /container
-RUN /container/build.sh
 
 ENV LANG="en_US.UTF-8" \
     LANGUAGE="en_US:en" \
     LC_ALL="en_US.UTF-8"
 
-ENTRYPOINT ["/container/tool/run"]
-
 # Keepalived version
 ARG KEEPALIVED_VERSION=2.3.1
 
 # Download, build and install Keepalived
-RUN apk update \
+RUN /container/build.sh \
+    && apk update \
     && apk --no-cache upgrade \
     && apk --no-cache add \
     bash \
@@ -49,7 +47,6 @@ RUN apk update \
     && rm -rf /container/keepalived-sources \
     && rm -rf keepalived.zip \
     && apk --no-cache del \
-    bash \ 
     autoconf \
     automake \
     gcc \
@@ -70,3 +67,5 @@ RUN /container/tool/install-service
 
 # Add default env variables
 ADD environment /container/environment/99-default
+
+ENTRYPOINT ["/container/tool/run"]

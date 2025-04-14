@@ -9,7 +9,7 @@ ENV LANG="en_US.UTF-8" \
     LC_ALL="en_US.UTF-8"
 
 # Keepalived version
-ARG KEEPALIVED_VERSION=2.3.1
+ARG KEEPALIVED_VERSION=2.3.3
 
 # Download, build and install Keepalived
 RUN /container/build.sh \

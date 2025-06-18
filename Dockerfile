@@ -1,4 +1,4 @@
-ARG ALPINE_VERSION=3.20
+ARG ALPINE_VERSION=3.22
 
 FROM alpine:${ALPINE_VERSION}
 
@@ -9,7 +9,7 @@ ENV LANG="en_US.UTF-8" \
     LC_ALL="en_US.UTF-8"
 
 # Keepalived version
-ARG KEEPALIVED_VERSION=2.3.3
+ARG KEEPALIVED_VERSION=2.3.4
 
 # Download, build and install Keepalived
 RUN /container/build.sh \

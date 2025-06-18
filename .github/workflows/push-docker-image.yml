@@ -49,12 +49,12 @@ jobs: # job name
           context: .
           tags: |
             ${{ vars.REPO_NAME }}:latest
-            ${{ vars.REPO_NAME }}:${{ env.KEEPALIVED_VERSION }}
-            ghcr.io/${{ env.IMAGE_NAME }}:${{ env.KEEPALIVED_VERSION }}
+            ${{ vars.REPO_NAME }}:${{ vars.KEEPALIVED_VERSION }}
+            ghcr.io/${{ env.IMAGE_NAME }}:${{ vars.KEEPALIVED_VERSION }}
             ghcr.io/${{ env.IMAGE_NAME }}:latest
           build-args: |
-            KEEPALIVED_VERSION=${{ env.KEEPALIVED_VERSION }}
-            ALPINE_VERSION: ${{ env.ALPINE_VERSION }}
+            KEEPALIVED_VERSION=${{ vars.KEEPALIVED_VERSION }}
+            ALPINE_VERSION: ${{ vars.ALPINE_VERSION }}
           platforms: |
             linux/arm/v7
             linux/arm64

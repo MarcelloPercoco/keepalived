@@ -54,7 +54,7 @@ jobs: # job name
             ghcr.io/${{ env.IMAGE_NAME }}:latest
           build-args: |
             KEEPALIVED_VERSION=${{ vars.KEEPALIVED_VERSION }}
-            ALPINE_VERSION: ${{ vars.ALPINE_VERSION }}
+            ALPINE_VERSION=${{ vars.ALPINE_VERSION }}
           platforms: |
             linux/arm/v7
             linux/arm64

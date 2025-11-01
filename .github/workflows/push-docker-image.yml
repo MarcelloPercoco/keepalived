@@ -20,7 +20,7 @@ jobs: # job name
       id-token: write
     runs-on: ubuntu-latest  # runner name : (ubuntu latest version)
     steps:
-      - uses: actions/checkout@v4 # first action : checkout source code
+      - uses: actions/checkout@v5 # first action : checkout source code
       - name: lowercase repository
         run: |
           echo "IMAGE_NAME=${GITHUB_REPOSITORY@L}" >> ${GITHUB_ENV}

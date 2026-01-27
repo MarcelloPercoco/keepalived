@@ -1,10 +1,10 @@
 ARG ALPINE_VERSION=3.22
-ARG KEEPALIVED_VERSION=2.3.4
 
 # -----------------------------------------
 #   STAGE 1: Build Keepalived from source
 # -----------------------------------------
 FROM alpine:${ALPINE_VERSION} AS builder
+ARG KEEPALIVED_VERSION=2.3.4
 
 # Install all build dependencies (removed later via multi-stage build)
 RUN apk add --no-cache \

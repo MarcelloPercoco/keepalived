@@ -50,6 +50,14 @@ RUN curl -SL \
 # -----------------------------------------
 FROM alpine:${ALPINE_VERSION}
 
+# copy needed stuffs
+COPY tool /container/tool
+COPY service /container/service
+COPY environment /container/environment
+
+# Ensure tool script is executable
+RUN chmod +x /container/tool/install-service
+
 # Install only the runtime dependencies (much smaller footprint)
 RUN apk add --no-cache \
     bash \
@@ -71,11 +79,6 @@ COPY --from=builder /usr/local/etc/keepalived /usr/local/etc/keepalived
 ENV LANG="en_US.UTF-8" \
     LANGUAGE="en_US:en" \
     LC_ALL="en_US.UTF-8"
-
-# copy needed stuffs
-COPY tool /container/tool
-COPY service /container/service
-COPY environment /container/environment
 
 # Add your service definitions
 RUN /container/tool/install-service

@@ -1,12 +1,21 @@
 ARG ALPINE_VERSION=3.22
 
-# -----------------------------------------
-#   STAGE 1: Build Keepalived from source
-# -----------------------------------------
-FROM alpine:${ALPINE_VERSION} AS builder
+FROM alpine:${ALPINE_VERSION}
 
-# Install all build dependencies (removed later via multi-stage build)
-RUN apk add --no-cache \
+COPY . /container
+
+ENV LANG="en_US.UTF-8" \
+    LANGUAGE="en_US:en" \
+    LC_ALL="en_US.UTF-8"
+
+# Keepalived version
+ARG KEEPALIVED_VERSION=2.3.4
+
+# Download, build and install Keepalived
+RUN /container/build.sh \
+    && apk update \
+    && apk --no-cache upgrade \
+    && apk --no-cache add \
     bash \
     autoconf \
     automake \
@@ -26,63 +35,37 @@ RUN apk add --no-cache \
     make \
     musl-dev \
     openssl \
+    openssl-dev \
+    && curl -o keepalived.zip -SL https://github.com/acassen/keepalived/archive/refs/tags/v${KEEPALIVED_VERSION}.zip \
+    && mkdir -p /container/keepalived-sources \
+    && unzip keepalived.zip -d container/keepalived-sources\
+    && cd container/keepalived-sources/keepalived-${KEEPALIVED_VERSION} \
+    && /bin/bash ./autogen.sh \
+    && /bin/bash ./configure --disable-dynamic-linking \
+    && make && make install \
+    && cd / \
+    && rm -rf /container/keepalived-sources \
+    && rm -rf keepalived.zip \
+    && apk --no-cache del \
+    autoconf \
+    automake \
+    gcc \
+    ipset-dev \
+    iptables-dev \
+    libnfnetlink-dev \
+    libnl3-dev \
+    make \
+    musl-dev \
     openssl-dev
 
-WORKDIR /tmp/src
-
-# Download Keepalived source (tar.gz avoids unzip dependency)
-RUN curl -SL \
-      "https://github.com/acassen/keepalived/archive/refs/tags/v${KEEPALIVED_VERSION}.tar.gz" \
-      -o keepalived.tar.gz \
-    && tar xzf keepalived.tar.gz \
-    && cd keepalived-${KEEPALIVED_VERSION} \
-    # Prepare the autotools build system
-    && ./autogen.sh \
-    # Configure the project (static linking disabled per your settings)
-    && ./configure --disable-dynamic-linking \
-    # Build and install into the builder environment
-    && make \
-    && make install
-
-# -----------------------------------------
-#   STAGE 2: Final runtime container
-# -----------------------------------------
-FROM alpine:${ALPINE_VERSION}
-ARG KEEPALIVED_VERSION=2.3.4
-
-# Copy application files
-COPY . /container
-
-# Install only the runtime dependencies (much smaller footprint)
-RUN apk add --no-cache \
-    bash \
-    libgcc \
-    libip4tc \
-    libip6tc \
-    ipset \
-    iptables \
-    libnfnetlink \
-    libnl3 \
-    openssl
-
-# Copy Keepalived binaries from the builder image
-COPY --from=builder /usr/local/sbin/keepalived /usr/local/sbin/keepalived
-COPY --from=builder /usr/local/etc/keepalived /usr/local/etc/keepalived
-
-# Set locale-related environment variables
-# (Note: Alpine uses musl, not glibc; this is only for consistency, not locale generation)
-ENV LANG="en_US.UTF-8" \
-    LANGUAGE="en_US:en" \
-    LC_ALL="en_US.UTF-8"
-
-# Ensure tool script is executable
-RUN chmod +x /container/tool/install-service
-
-# Add your service definitions
+# Add service directory to /container/service
 ADD service /container/service
+
+# Use baseimage install-service script
+# https://github.com/osixia/docker-light-baseimage/blob/stable/image/tool/install-service
 RUN /container/tool/install-service
 
-# Default environment variables
+# Add default env variables
 ADD environment /container/environment/99-default
 
 ENTRYPOINT ["/container/tool/run"]

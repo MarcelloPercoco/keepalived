@@ -50,9 +50,6 @@ RUN curl -SL \
 # -----------------------------------------
 FROM alpine:${ALPINE_VERSION}
 
-# Copy application files
-COPY . /container
-
 # Install only the runtime dependencies (much smaller footprint)
 RUN apk add --no-cache \
     bash \
@@ -75,11 +72,12 @@ ENV LANG="en_US.UTF-8" \
     LANGUAGE="en_US:en" \
     LC_ALL="en_US.UTF-8"
 
-# Add your service definitions
-ADD service /container/service
-RUN /container/tool/install-service
+# copy needed stuffs
+COPY tool /container/tool
+COPY service /container/service
+COPY environment /container/environment
 
-# Default environment variables
-ADD environment /container/environment/99-default
+# Add your service definitions
+RUN /container/tool/install-service
 
 ENTRYPOINT ["/container/tool/run"]

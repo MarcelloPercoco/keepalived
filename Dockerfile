@@ -1,5 +1,5 @@
 # ==============================================================================
-# Stage 1: Builder (Keepalived Compilation)
+# Stage 1: Builder
 # ==============================================================================
 ARG ALPINE_VERSION=3.22
 FROM alpine:${ALPINE_VERSION} AS builder
@@ -20,14 +20,15 @@ RUN curl -o keepalived.zip -SL https://github.com/acassen/keepalived/archive/ref
     && make install
 
 # ==============================================================================
-# Stage 2: Final Image (Ultra-light, No Python)
+# Stage 2: Final Image (Python restored for run.py)
 # ==============================================================================
 FROM alpine:${ALPINE_VERSION}
 
-# Minimal runtime dependencies
-# su-exec replaces the need for setuser.py
+# We need Python 3 and Py-YAML for the original run.py to work
 RUN apk --no-cache add \
     bash \
+    python3 \
+    py3-yaml \
     curl \
     su-exec \
     libgcc \
@@ -39,24 +40,24 @@ RUN apk --no-cache add \
     libip4tc \
     libip6tc
 
-# Copy compiled binaries from builder
+# Copy Keepalived from builder
 COPY --from=builder /usr/local/sbin/keepalived /usr/local/sbin/keepalived
 COPY --from=builder /usr/local/etc/keepalived /usr/local/etc/keepalived
 
 WORKDIR /container
 COPY . /container
 
-# Set permissions for our new Bash tools
+# Ensure tools are executable
+# We use your original run (python) but our new bash install-service/setuser
 RUN chmod +x /container/tool/run \
              /container/tool/setuser \
              /container/tool/install-service
 
-# Bootstrap the container. 
-# IMPORTANT: Ensure your build.sh DOES NOT contain 'apk add python3'
+# Run bootstrap
 RUN chmod +x /container/build.sh && /container/build.sh
 
-# Install services (Bash version)
+# Run service installation
 RUN /container/tool/install-service
 
-# The entrypoint is now our optimized Bash script
+# Back to original Python entrypoint
 ENTRYPOINT ["/container/tool/run"]

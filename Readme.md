@@ -37,3 +37,32 @@ services:
       - VIRTUAL_IP=192.168.1.100/24
       - PRIORITY=101
       - ROUTER_ID=51
+
+### 2. Advanced Mode (Custom File)
+If you need complex features like Unicast Peers, multiple VRRP instances, or health-check scripts, mount your own configuration.
+
+```yaml
+services:
+  keepalived:
+    image: ghcr.io/your-username/keepalived:latest
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    network_mode: host
+    volumes:
+      - ./my-keepalived.conf:/etc/keepalived/keepalived.conf:ro
+
+---
+
+### Configuration Reference (Tabella per il README)
+```text
+## ⚙️ Configuration Reference
+
+| Variable | Description | Default |
+| :--- | :--- | :--- |
+| `STATE` | Initial VRRP state (`MASTER` or `BACKUP`) | `MASTER` |
+| `INTERFACE` | Network interface to bind the VRRP instance | `eth0` |
+| `VIRTUAL_IP` | The VIP address (CIDR format recommended) | `192.168.1.1` |
+| `PRIORITY` | VRRP priority value (Higher value = Higher priority) | `100` |
+| `ROUTER_ID` | Unique VRRP Router ID (0-255) | `51` |
+

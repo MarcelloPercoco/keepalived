@@ -1,14 +1,13 @@
 # ==============================================================================
 # Stage 1: Builder
-# Compiles Keepalived from source to keep the final image small and clean.
+# Compiles Keepalived using the default /usr/local prefix to match existing scripts.
 # ==============================================================================
 ARG ALPINE_VERSION=3.22
 FROM alpine:${ALPINE_VERSION} AS builder
 
 ARG KEEPALIVED_VERSION=2.3.4
 
-# Install build dependencies (compilers, headers, tools)
-# These will be discarded in the final stage.
+# Install build dependencies
 RUN apk --no-cache add \
     bash \
     curl \
@@ -26,30 +25,27 @@ RUN apk --no-cache add \
 
 WORKDIR /build
 
-# Download, unzip, and compile Keepalived
-# We use --prefix=/usr to ensure binaries land in standard paths
+# Compile Keepalived with default prefix (/usr/local)
+# This ensures compatibility with your run/startup scripts 
 RUN curl -o keepalived.zip -SL https://github.com/acassen/keepalived/archive/refs/tags/v${KEEPALIVED_VERSION}.zip \
     && unzip keepalived.zip \
     && cd keepalived-${KEEPALIVED_VERSION} \
     && ./autogen.sh \
-    && ./configure --disable-dynamic-linking --prefix=/usr --sysconfdir=/etc \
+    && ./configure --disable-dynamic-linking \
     && make \
     && make install
 
 # ==============================================================================
-# Stage 2: Final Image (Runtime)
-# Contains only the compiled binary and runtime dependencies.
+# Stage 2: Final Image
 # ==============================================================================
 FROM alpine:${ALPINE_VERSION}
 
-# Set basic environment variables
+# Restore original environment variables 
 ENV LANG="en_US.UTF-8" \
     LANGUAGE="en_US:en" \
     LC_ALL="en_US.UTF-8"
 
-# Install Runtime Dependencies
-# 1. Keepalived libs: libnl3, openssl, iptables, ipset, etc.
-# 2. Tools from build.sh: bash, python3, py-yaml (moved here for better caching)
+# Install Runtime Dependencies including Python for YAML parsing 
 RUN apk --no-cache add \
     bash \
     python3 \
@@ -64,24 +60,21 @@ RUN apk --no-cache add \
     libip4tc \
     libip6tc
 
-# Copy the compiled Keepalived binary from the builder stage
-COPY --from=builder /usr/sbin/keepalived /usr/sbin/keepalived
+# Copy the compiled binaries and default configs from builder [cite: 2, 3]
+COPY --from=builder /usr/local/sbin/keepalived /usr/local/sbin/keepalived
+COPY --from=builder /usr/local/etc/keepalived /usr/local/etc/keepalived
 
-# Create the working directory
 WORKDIR /container
 
-# Copy the repository content to the container.
-# This is done near the end to optimize layer caching.
+# Copy repository files 
 COPY . /container
 
-# Execute build.sh to setup the environment
-# (Symlinks, users, permissions, and environment file generation)
-# Since we pre-installed packages above, this step is fast.
+# Run the bootstrap script 
+# It handles symlinks and internal environment setup
 RUN chmod +x /container/build.sh && /container/build.sh
 
-# Use the install-service tool from the copied files
-# https://github.com/osixia/docker-light-baseimage/blob/stable/image/tool/install-service
+# Install services using the tool provided in the repo [cite: 3]
 RUN /container/tool/install-service
 
-# Define the entrypoint script
+# The entrypoint uses the 'run' tool provided in the repository [cite: 4]
 ENTRYPOINT ["/container/tool/run"]

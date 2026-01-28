@@ -58,7 +58,7 @@ services:
 ---
 
 ### Configuration Reference (Tabella per il README)
-```text
+
 ## ⚙️ Configuration Reference
 
 | Variable | Description | Default |
@@ -68,9 +68,6 @@ services:
 | `VIRTUAL_IP` | The VIP address (CIDR format recommended) | `192.168.1.1` |
 | `PRIORITY` | VRRP priority value (Higher value = Higher priority) | `100` |
 | `ROUTER_ID` | Unique VRRP Router ID (0-255) | `51` |
-```
-
----
 
 ### 🏗 Build & Automation
 ## Local Build

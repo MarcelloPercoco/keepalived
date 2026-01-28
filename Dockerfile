@@ -10,7 +10,7 @@ ARG KEEPALIVED_VERSION=2.3.4
 # Install build dependencies
 RUN apk add --no-cache \
     bash curl gcc musl-dev make linux-headers openssl-dev \
-    libnl3-dev iptables-dev ipset-dev libnfnetlink-dev autogen autoconf automake tar
+    libnl3-dev iptables-dev ipset-dev libnfnetlink-dev autoconf automake tar
 
 WORKDIR /build
 

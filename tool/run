@@ -1,10 +1,10 @@
 #!/bin/bash
 # ==============================================================================
-# Bash replacement for the Python 'run' tool.
-# Handles environment loading from YAML and service execution.
+# Improved Bash replacement for the Python 'run' tool.
+# Handles YAML parsing and ensures variables are correctly exported.
 # ==============================================================================
 
-# Simple YAML to Env parser (handles keys and simple lists)
+# Optimized YAML parser for simple flat files and lists
 parse_yaml() {
     local prefix=$2
     local s='[[:space:]]*' w='[a-zA-Z0-9_]*' fs=$(echo @|tr @ '\032')
@@ -19,7 +19,6 @@ parse_yaml() {
         if (length($3) > 0) {
             vn=""; for (i=0; i<indent; i++) {vn=(vn)(vname[i])("_")}
             if (length($2) == 0) {
-                 # List item: append to previous key
                  print "export " vn vname[indent-1] "=\"$" vn vname[indent-1] " " $3 "\""
             } else {
                  print "export " vn $2 "=\"" $3 "\""
@@ -28,28 +27,33 @@ parse_yaml() {
     }' | sed 's/_=/=/g'
 }
 
-# 1. Load environment variables from default.yaml
+# English comment: Set base directory to ensure relative paths work
+export CONTAINER_SERVICE_DIR="/container/service"
+
+# 1. Load environment variables
 if [ -f "/container/environment/default.yaml" ]; then
     echo "Processing /container/environment/default.yaml..."
+    # Evaluate the parsed variables
     eval $(parse_yaml /container/environment/default.yaml)
 fi
 
 # 2. Run startup scripts
-# These usually prepare the config files using the env variables loaded above
-for startup_script in $(ls /container/service/*/startup.sh 2>/dev/null); do
+# We use find to be more robust than ls
+for startup_script in $(find /container/service -name "startup.sh" | sort); do
     echo "Running startup: $startup_script"
-    bash "$startup_script"
+    # Execute in the current shell to keep env variables
+    . "$startup_script"
 done
 
-# 3. Determine if we use runit (multiple processes) or direct exec
-NB_PROCESS=$(ls /container/service/*/process.sh 2>/dev/null | wc -l)
+# 3. Final process execution
+NB_PROCESS=$(find /container/service -name "process.sh" | wc -l)
 
 if [ "$NB_PROCESS" -gt 1 ]; then
     echo "Multiple processes detected. Starting runit..."
     exec /usr/bin/runsvdir -P /etc/service
 else
-    # Only one process (Keepalived)
-    PROCESS_SCRIPT=$(ls /container/service/*/process.sh 2>/dev/null)
+    PROCESS_SCRIPT=$(find /container/service -name "process.sh")
     echo "Starting main process: $PROCESS_SCRIPT"
-    exec bash "$PROCESS_SCRIPT"
+    # Added 2>&1 to force logs to stdout/stderr
+    exec bash "$PROCESS_SCRIPT" 2>&1
 fi

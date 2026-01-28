@@ -1,80 +1,53 @@
 # ==============================================================================
-# Stage 1: Builder
-# Compiles Keepalived using the default /usr/local prefix to match existing scripts.
+# STAGE 1: Builder
+# Compiles Keepalived from source to keep the final image slim.
 # ==============================================================================
-ARG ALPINE_VERSION=3.22
+ARG ALPINE_VERSION=3.23
 FROM alpine:${ALPINE_VERSION} AS builder
 
 ARG KEEPALIVED_VERSION=2.3.4
 
 # Install build dependencies
-RUN apk --no-cache add \
-    bash \
-    curl \
-    gcc \
-    musl-dev \
-    make \
-    linux-headers \
-    openssl-dev \
-    libnl3-dev \
-    iptables-dev \
-    ipset-dev \
-    libnfnetlink-dev \
-    autoconf \
-    automake
+RUN apk add --no-cache \
+    bash curl gcc musl-dev make linux-headers openssl-dev \
+    libnl3-dev iptables-dev ipset-dev libnfnetlink-dev autogen autoconf automake tar
 
 WORKDIR /build
 
-# Compile Keepalived with default prefix (/usr/local)
-# This ensures compatibility with your run/startup scripts 
-RUN curl -o keepalived.zip -SL https://github.com/acassen/keepalived/archive/refs/tags/v${KEEPALIVED_VERSION}.zip \
-    && unzip keepalived.zip \
+# Download source and compile
+# Using tar.gz for better compression and permission preservation
+RUN curl -o keepalived.tar.gz -SL https://github.com/acassen/keepalived/archive/refs/tags/v${KEEPALIVED_VERSION}.tar.gz \
+    && tar -xzf keepalived.tar.gz \
     && cd keepalived-${KEEPALIVED_VERSION} \
     && ./autogen.sh \
-    && ./configure --disable-dynamic-linking \
+    && ./configure --prefix=/usr --exec-prefix=/usr --bindir=/usr/bin --sbindir=/usr/sbin --sysconfdir=/etc --disable-dynamic-linking \
     && make \
     && make install
 
 # ==============================================================================
-# Stage 2: Final Image
+# STAGE 2: Runtime
+# Final lightweight image containing only the binary and network tools.
 # ==============================================================================
 FROM alpine:${ALPINE_VERSION}
 
-# Restore original environment variables 
-ENV LANG="en_US.UTF-8" \
-    LANGUAGE="en_US:en" \
-    LC_ALL="en_US.UTF-8"
-
-# Install Runtime Dependencies including Python for YAML parsing 
-RUN apk --no-cache add \
+# Install runtime dependencies and essential networking tools
+RUN apk add --no-cache \
     bash \
-    python3 \
-    py3-yaml \
-    curl \
+    iproute2 \
+    iputils \
     libgcc \
     libnl3 \
     openssl \
     libnfnetlink \
     iptables \
-    ipset \
-    libip4tc \
-    libip6tc
+    ipset
 
-# Copy the compiled binaries and default configs from builder [cite: 2, 3]
-COPY --from=builder /usr/local/sbin/keepalived /usr/local/sbin/keepalived
-COPY --from=builder /usr/local/etc/keepalived /usr/local/etc/keepalived
+# Copy compiled binary from builder stage
+COPY --from=builder /usr/sbin/keepalived /usr/sbin/keepalived
 
-WORKDIR /container
+# Copy the entrypoint script
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
-# Copy repository files 
-COPY . /container
-
-# Run the bootstrap script 
-# It handles symlinks and internal environment setup
-RUN chmod +x /container/build.sh && /container/build.sh
-
-# Install services using the tool provided in the repo [cite: 3]
-RUN /container/tool/install-service
-
-# The entrypoint uses the 'run' tool provided in the repository [cite: 4]
-ENTRYPOINT ["/container/tool/run"]
+# Keepalived needs net_admin/net_raw capabilities to manage VIPs
+ENTRYPOINT ["/entrypoint.sh"]

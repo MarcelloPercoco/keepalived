@@ -1,12 +1,27 @@
 #!/bin/bash
 # ==============================================================================
-# Debugged Bash 'run' tool.
-# Added explicit logging to track down where it stops.
+# Compatibility version of the Bash 'run' tool.
+# Provides dummy functions to satisfy Osixia startup scripts.
 # ==============================================================================
 
-echo "--- Init system starting (Bash) ---"
+echo "--- Init system starting (Bash Compatibility Mode) ---"
 
-# Improved YAML parser - simplified for safety
+# --- Compatibility Functions (Mocking Osixia tools) ---
+
+# Mock log-helper: always returns false to avoid grep errors
+log-helper() {
+    return 1
+}
+
+# Mock debug function
+debug() {
+    echo "DEBUG: $*"
+}
+
+export -f log-helper
+export -f debug
+
+# --- YAML Parser ---
 parse_yaml() {
     local s='[[:space:]]*' w='[a-zA-Z0-9_]*' fs=$(echo @|tr @ '\032')
     sed -ne "s|^\($s\)\($w\)$s:$s[\"']\(.*\)[\"']$s\$|\1$fs\2$fs\3|p" \
@@ -27,41 +42,20 @@ parse_yaml() {
     }'
 }
 
-# 1. Critical environment variables for Osixia-style scripts
+# 1. Environment Setup
 export KEEPALIVED_ASSETS_DIR="/container/service/keepalived/assets"
-export CONTAINER_SERVICE_DIR="/container/service"
+[ -f "/container/environment/default.yaml" ] && eval $(parse_yaml /container/environment/default.yaml)
 
-# 2. Load YAML environment
-if [ -f "/container/environment/default.yaml" ]; then
-    echo "Loading environment from /container/environment/default.yaml..."
-    # Generate temporary script to source, avoids eval issues
-    parse_yaml /container/environment/default.yaml > /tmp/env_vars.sh
-    . /tmp/env_vars.sh
-    echo "Environment loaded."
-fi
-
-# 3. Run startup script
+# 2. Run Startup
 if [ -f "/container/service/keepalived/startup.sh" ]; then
-    echo "Executing startup script..."
-    # We must be in the assets directory for some sed commands to work
+    echo "Running startup..."
+    # IMPORTANT: we don't use 'set -e' here so a grep error doesn't kill the boot
     cd /container/service/keepalived
-    # Use 'source' to keep env variables and catch output
-    if . ./startup.sh; then
-        echo "Startup script completed successfully."
-    else
-        echo "ERROR: Startup script failed with exit code $?"
-    fi
-else
-    echo "WARNING: No startup script found at /container/service/keepalived/startup.sh"
+    . ./startup.sh
+    echo "Startup finished."
 fi
 
-# 4. Final process execution
+# 3. Launch Process
+echo "Launching Keepalived..."
 cd /container
-if [ -f "/container/service/keepalived/process.sh" ]; then
-    echo "Launching Keepalived process..."
-    # 2>&1 ensures everything goes to docker logs
-    exec /bin/bash /container/service/keepalived/process.sh 2>&1
-else
-    echo "CRITICAL ERROR: process.sh not found!"
-    exit 1
-fi
+exec /bin/bash /container/service/keepalived/process.sh 2>&1

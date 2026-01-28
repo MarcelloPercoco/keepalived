@@ -1,15 +1,15 @@
 #!/bin/bash
 # ==============================================================================
-# Improved Bash replacement for the Python 'run' tool.
-# Handles YAML parsing and ensures variables are correctly exported.
+# Debugged Bash 'run' tool.
+# Added explicit logging to track down where it stops.
 # ==============================================================================
 
-# Optimized YAML parser for simple flat files and lists
+echo "--- Init system starting (Bash) ---"
+
+# Improved YAML parser - simplified for safety
 parse_yaml() {
-    local prefix=$2
     local s='[[:space:]]*' w='[a-zA-Z0-9_]*' fs=$(echo @|tr @ '\032')
-    sed -ne "s|^\($s\):|\1|" \
-        -e "s|^\($s\)\($w\)$s:$s[\"']\(.*\)[\"']$s\$|\1$fs\2$fs\3|p" \
+    sed -ne "s|^\($s\)\($w\)$s:$s[\"']\(.*\)[\"']$s\$|\1$fs\2$fs\3|p" \
         -e "s|^\($s\)\($w\)$s:$s\(.*\)$s\$|\1$fs\2$fs\3|p" \
         -e "s|^\($s\)-$s\(.*\)$s\$|\1$fs$fs\2|p" $1 |
     awk -F$fs '{
@@ -19,41 +19,49 @@ parse_yaml() {
         if (length($3) > 0) {
             vn=""; for (i=0; i<indent; i++) {vn=(vn)(vname[i])("_")}
             if (length($2) == 0) {
-                 print "export " vn vname[indent-1] "=\"$" vn vname[indent-1] " " $3 "\""
+                 print "export " vn vname[indent-1] "=\"${" vn vname[indent-1] ":-} " $3 "\""
             } else {
                  print "export " vn $2 "=\"" $3 "\""
             }
         }
-    }' | sed 's/_=/=/g'
+    }'
 }
 
-# English comment: Set base directory to ensure relative paths work
+# 1. Critical environment variables for Osixia-style scripts
+export KEEPALIVED_ASSETS_DIR="/container/service/keepalived/assets"
 export CONTAINER_SERVICE_DIR="/container/service"
 
-# 1. Load environment variables
+# 2. Load YAML environment
 if [ -f "/container/environment/default.yaml" ]; then
-    echo "Processing /container/environment/default.yaml..."
-    # Evaluate the parsed variables
-    eval $(parse_yaml /container/environment/default.yaml)
+    echo "Loading environment from /container/environment/default.yaml..."
+    # Generate temporary script to source, avoids eval issues
+    parse_yaml /container/environment/default.yaml > /tmp/env_vars.sh
+    . /tmp/env_vars.sh
+    echo "Environment loaded."
 fi
 
-# 2. Run startup scripts
-# We use find to be more robust than ls
-for startup_script in $(find /container/service -name "startup.sh" | sort); do
-    echo "Running startup: $startup_script"
-    # Execute in the current shell to keep env variables
-    . "$startup_script"
-done
-
-# 3. Final process execution
-NB_PROCESS=$(find /container/service -name "process.sh" | wc -l)
-
-if [ "$NB_PROCESS" -gt 1 ]; then
-    echo "Multiple processes detected. Starting runit..."
-    exec /usr/bin/runsvdir -P /etc/service
+# 3. Run startup script
+if [ -f "/container/service/keepalived/startup.sh" ]; then
+    echo "Executing startup script..."
+    # We must be in the assets directory for some sed commands to work
+    cd /container/service/keepalived
+    # Use 'source' to keep env variables and catch output
+    if . ./startup.sh; then
+        echo "Startup script completed successfully."
+    else
+        echo "ERROR: Startup script failed with exit code $?"
+    fi
 else
-    PROCESS_SCRIPT=$(find /container/service -name "process.sh")
-    echo "Starting main process: $PROCESS_SCRIPT"
-    # Added 2>&1 to force logs to stdout/stderr
-    exec bash "$PROCESS_SCRIPT" 2>&1
+    echo "WARNING: No startup script found at /container/service/keepalived/startup.sh"
+fi
+
+# 4. Final process execution
+cd /container
+if [ -f "/container/service/keepalived/process.sh" ]; then
+    echo "Launching Keepalived process..."
+    # 2>&1 ensures everything goes to docker logs
+    exec /bin/bash /container/service/keepalived/process.sh 2>&1
+else
+    echo "CRITICAL ERROR: process.sh not found!"
+    exit 1
 fi

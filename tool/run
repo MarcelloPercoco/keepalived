@@ -1,61 +1,143 @@
-#!/bin/bash
-# ==============================================================================
-# Compatibility version of the Bash 'run' tool.
-# Provides dummy functions to satisfy Osixia startup scripts.
-# ==============================================================================
+#!/usr/bin/python3 -u
+# -*- coding: utf-8 -*-
 
-echo "--- Init system starting (Bash Compatibility Mode) ---"
+import os, os.path, sys, stat, signal, errno, argparse, time, json, re, yaml, ast, socket, shutil, pwd, grp
+import subprocess
+from datetime import datetime
 
-# --- Compatibility Functions (Mocking Osixia tools) ---
+KILL_PROCESS_TIMEOUT = int(os.environ.get('KILL_PROCESS_TIMEOUT', 30))
+KILL_ALL_PROCESSES_TIMEOUT = int(os.environ.get('KILL_ALL_PROCESSES_TIMEOUT', 30))
 
-# Mock log-helper: always returns false to avoid grep errors
-log-helper() {
-    return 1
-}
+LOG_LEVEL_NONE = 0
+LOG_LEVEL_ERROR = 1
+LOG_LEVEL_WARNING  = 2
+LOG_LEVEL_INFO  = 3
+LOG_LEVEL_DEBUG = 4
+LOG_LEVEL_TRACE = 5
 
-# Mock debug function
-debug() {
-    echo "DEBUG: $*"
-}
+SHENV_NAME_WHITELIST_REGEX = re.compile(r'\W')
 
-export -f log-helper
-export -f debug
+log_level = None
 
-# --- YAML Parser ---
-parse_yaml() {
-    local s='[[:space:]]*' w='[a-zA-Z0-9_]*' fs=$(echo @|tr @ '\032')
-    sed -ne "s|^\($s\)\($w\)$s:$s[\"']\(.*\)[\"']$s\$|\1$fs\2$fs\3|p" \
-        -e "s|^\($s\)\($w\)$s:$s\(.*\)$s\$|\1$fs\2$fs\3|p" \
-        -e "s|^\($s\)-$s\(.*\)$s\$|\1$fs$fs\2|p" $1 |
-    awk -F$fs '{
-        indent = length($1)/2;
-        vname[indent] = $2;
-        for (i in vname) {if (i > indent) {delete vname[i]}}
-        if (length($3) > 0) {
-            vn=""; for (i=0; i<indent; i++) {vn=(vn)(vname[i])("_")}
-            if (length($2) == 0) {
-                 print "export " vn vname[indent-1] "=\"${" vn vname[indent-1] ":-} " $3 "\""
-            } else {
-                 print "export " vn $2 "=\"" $3 "\""
-            }
-        }
-    }'
-}
+environ_backup = dict(os.environ)
+terminated_child_processes = {}
 
-# 1. Environment Setup
-export KEEPALIVED_ASSETS_DIR="/container/service/keepalived/assets"
-[ -f "/container/environment/default.yaml" ] && eval $(parse_yaml /container/environment/default.yaml)
+IMPORT_STARTUP_FILENAME="startup.sh"
+IMPORT_PROCESS_FILENAME="process.sh"
+IMPORT_FINISH_FILENAME="finish.sh"
 
-# 2. Run Startup
-if [ -f "/container/service/keepalived/startup.sh" ]; then
-    echo "Running startup..."
-    # IMPORTANT: we don't use 'set -e' here so a grep error doesn't kill the boot
-    cd /container/service/keepalived
-    . ./startup.sh
-    echo "Startup finished."
-fi
+IMPORT_ENVIRONMENT_DIR="/container/environment"
+IMPORT_FIRST_STARTUP_ENVIRONMENT_DIR="/container/environment/startup"
 
-# 3. Launch Process
-echo "Launching Keepalived..."
-cd /container
-exec /bin/bash /container/service/keepalived/process.sh 2>&1
+ENV_FILES_YAML_EXTENSIONS = ('.yaml', '.startup.yaml')
+ENV_FILES_JSON_EXTENSIONS = ('.json', '.startup.json')
+ENV_FILES_STARTUP_EXTENSIONS = ('.startup.yaml', '.startup.json')
+
+IMPORT_SERVICE_DIR="/container/service"
+
+RUN_DIR="/container/run"
+RUN_STATE_DIR = RUN_DIR + "/state"
+RUN_ENVIRONMENT_DIR = RUN_DIR + "/environment"
+RUN_ENVIRONMENT_STARTUP_DIR = RUN_ENVIRONMENT_DIR + "/startup"
+
+# Helper for logging
+def log(level, message):
+    if log_level is not None and level <= log_level:
+        now = datetime.now()
+        prefix = ""
+        if level == LOG_LEVEL_ERROR: prefix = "ERROR"
+        elif level == LOG_LEVEL_WARNING: prefix = "WARNING"
+        elif level == LOG_LEVEL_INFO: prefix = "INFO"
+        elif level == LOG_LEVEL_DEBUG: prefix = "DEBUG"
+        elif level == LOG_LEVEL_TRACE: prefix = "TRACE"
+        print(f"[{prefix}] {now.strftime('%Y-%m-%d %H:%M:%S')} - {message}")
+
+def error(message): log(LOG_LEVEL_ERROR, message)
+def warning(message): log(LOG_LEVEL_WARNING, message)
+def info(message): log(LOG_LEVEL_INFO, message)
+def debug(message): log(LOG_LEVEL_DEBUG, message)
+def trace(message): log(LOG_LEVEL_TRACE, message)
+
+def is_multiple_process_container():
+    return os.path.exists("/container/multiple_process_stack_added")
+
+def load_env_from_yaml(file_path):
+    try:
+        with open(file_path, 'r') as f:
+            data = yaml.safe_load(f)
+            if data:
+                for key, value in data.items():
+                    # If value is a list (like IPs), join with spaces for Bash scripts
+                    if isinstance(value, list):
+                        os.environ[key] = " ".join(map(str, value))
+                    else:
+                        os.environ[key] = str(value)
+    except Exception as e:
+        error(f"failed to parse: {file_path} - {str(e)}")
+
+def main(args):
+    global log_level
+    log_level = args.log_level
+
+    info("Init system starting...")
+
+    # Load environment from default.yaml if exists
+    default_yaml = "/container/environment/default.yaml"
+    if os.path.isfile(default_yaml):
+        info(f"Loading environment from {default_yaml}")
+        load_env_from_yaml(default_yaml)
+
+    # Run startup scripts
+    if not args.skip_startup_files:
+        startup_scripts = []
+        for root, dirs, files in os.walk(IMPORT_SERVICE_DIR):
+            if IMPORT_STARTUP_FILENAME in files:
+                startup_scripts.append(os.path.join(root, IMPORT_STARTUP_FILENAME))
+        
+        for script in sorted(startup_scripts):
+            info(f"Running startup script: {script}")
+            subprocess.call([script], shell=True, cwd=os.path.dirname(script))
+
+    # Run process
+    if not args.skip_process_files:
+        if is_multiple_process_container():
+            info("Multiple processes detected, starting runit...")
+            os.execvp("/usr/bin/runsvdir", ["/usr/bin/runsvdir", "-P", "/etc/service"])
+        else:
+            # Single process (Keepalived)
+            process_script = None
+            for root, dirs, files in os.walk(IMPORT_SERVICE_DIR):
+                if IMPORT_PROCESS_FILENAME in files:
+                    process_script = os.path.join(root, IMPORT_PROCESS_FILENAME)
+                    break
+            
+            if process_script:
+                info(f"Launching main process: {process_script}")
+                os.execvp("/bin/bash", ["/bin/bash", process_script])
+            else:
+                error("No process.sh found!")
+                sys.exit(1)
+
+def ignore_signals_and_raise_keyboard_interrupt(signum):
+    signal.signal(signal.SIGTERM, signal.SIG_IGN)
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
+    raise KeyboardInterrupt
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Osixia Init System')
+    parser.add_argument('--log-level', type=int, default=3, help='Log level (0-5)')
+    parser.add_argument('--skip-startup-files', action='store_true')
+    parser.add_argument('--skip-process-files', action='store_true')
+    parser.add_argument('--run-only', type=str, choices=['startup', 'process', 'finish'])
+    
+    # Fake compatibility args
+    parser.add_argument('--wait-first-startup', action='store_true')
+    parser.add_argument('--keepalive', action='store_true')
+
+    args = parser.parse_args()
+    
+    try:
+        main(args)
+    except KeyboardInterrupt:
+        warning("Init system aborted.")
+        sys.exit(2)

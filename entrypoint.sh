@@ -1,25 +1,26 @@
 #!/bin/bash
 set -e
 
+# Path to the final configuration file
 CONF_FILE="/etc/keepalived/keepalived.conf"
-TEMPLATE_FILE="/etc/keepalived/keepalived.conf.template"
 
-echo "--- Keepalived Starting ---"
+echo "--- Keepalived Startup Process ---"
 
-# Scenario A: Se hai montato un file da fuori, usiamo quello
+# Check if a custom configuration file was mounted via volume
 if [ -f "$CONF_FILE" ] && [ ! -L "$CONF_FILE" ]; then
-    echo "Custom configuration detected via volume. Using it."
+    echo "INFO: Custom configuration found at $CONF_FILE. Skipping auto-generation."
 else
-    # Scenario B: Generiamo la configurazione dalle variabili
-    echo "No custom config found. Generating from environment variables..."
+    # Generate a basic configuration using environment variables if no file is provided
+    echo "INFO: No custom config detected. Generating configuration from environment variables..."
     
-    # Valori di default se mancano le variabili
+    # Set default values if variables are not provided by Docker Compose/Environment
     STATE=${STATE:-MASTER}
     PRIORITY=${PRIORITY:-100}
     INTERFACE=${INTERFACE:-eth0}
     ROUTER_ID=${ROUTER_ID:-51}
     VIRTUAL_IP=${VIRTUAL_IP:-192.168.1.1}
 
+    # Create the configuration file using a Here-Doc
     cat <<EOF > $CONF_FILE
 vrrp_instance VI_1 {
     state $STATE
@@ -29,15 +30,19 @@ vrrp_instance VI_1 {
     advert_int 1
     authentication {
         auth_type PASS
-        auth_pass 1234
+        auth_pass 1111
     }
     virtual_ipaddress {
         $VIRTUAL_IP
     }
 }
 EOF
-    echo "Configuration generated at $CONF_FILE"
+    echo "INFO: Basic configuration generated successfully."
 fi
 
-# Lancio del processo (sempre in foreground per i log di Docker)
+# Start Keepalived in foreground
+# --dont-fork: Keeps the process in foreground for Docker logs
+# --log-console: Directs logs to stdout/stderr
+# --log-detail: Provides verbose logging for easier debugging
+echo "INFO: Launching Keepalived binary..."
 exec /usr/sbin/keepalived -f "$CONF_FILE" --dont-fork --log-console --log-detail

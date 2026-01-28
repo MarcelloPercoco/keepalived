@@ -37,6 +37,7 @@ services:
       - VIRTUAL_IP=192.168.1.100/24
       - PRIORITY=101
       - ROUTER_ID=51
+```
 
 ### 2. Advanced Mode (Custom File)
 If you need complex features like Unicast Peers, multiple VRRP instances, or health-check scripts, mount your own configuration.
@@ -51,6 +52,7 @@ services:
     network_mode: host
     volumes:
       - ./my-keepalived.conf:/etc/keepalived/keepalived.conf:ro
+```
 
 ---
 
@@ -65,4 +67,4 @@ services:
 | `VIRTUAL_IP` | The VIP address (CIDR format recommended) | `192.168.1.1` |
 | `PRIORITY` | VRRP priority value (Higher value = Higher priority) | `100` |
 | `ROUTER_ID` | Unique VRRP Router ID (0-255) | `51` |
-
+```

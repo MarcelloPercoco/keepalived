@@ -1,16 +1,32 @@
 # ==============================================================================
 # Stage 1: Builder
+# Compiles Keepalived using the default /usr/local prefix to match existing scripts.
 # ==============================================================================
 ARG ALPINE_VERSION=3.22
 FROM alpine:${ALPINE_VERSION} AS builder
 
 ARG KEEPALIVED_VERSION=2.3.4
 
+# Install build dependencies
 RUN apk --no-cache add \
-    bash curl gcc musl-dev make linux-headers openssl-dev \
-    libnl3-dev iptables-dev ipset-dev libnfnetlink-dev autoconf automake
+    bash \
+    curl \
+    gcc \
+    musl-dev \
+    make \
+    linux-headers \
+    openssl-dev \
+    libnl3-dev \
+    iptables-dev \
+    ipset-dev \
+    libnfnetlink-dev \
+    autoconf \
+    automake
 
 WORKDIR /build
+
+# Compile Keepalived with default prefix (/usr/local)
+# This ensures compatibility with your run/startup scripts 
 RUN curl -o keepalived.zip -SL https://github.com/acassen/keepalived/archive/refs/tags/v${KEEPALIVED_VERSION}.zip \
     && unzip keepalived.zip \
     && cd keepalived-${KEEPALIVED_VERSION} \
@@ -20,17 +36,21 @@ RUN curl -o keepalived.zip -SL https://github.com/acassen/keepalived/archive/ref
     && make install
 
 # ==============================================================================
-# Stage 2: Final Image (Python restored for run.py)
+# Stage 2: Final Image
 # ==============================================================================
 FROM alpine:${ALPINE_VERSION}
 
-# We need Python 3 and Py-YAML for the original run.py to work
+# Restore original environment variables 
+ENV LANG="en_US.UTF-8" \
+    LANGUAGE="en_US:en" \
+    LC_ALL="en_US.UTF-8"
+
+# Install Runtime Dependencies including Python for YAML parsing 
 RUN apk --no-cache add \
     bash \
     python3 \
     py3-yaml \
     curl \
-    su-exec \
     libgcc \
     libnl3 \
     openssl \
@@ -40,24 +60,21 @@ RUN apk --no-cache add \
     libip4tc \
     libip6tc
 
-# Copy Keepalived from builder
+# Copy the compiled binaries and default configs from builder [cite: 2, 3]
 COPY --from=builder /usr/local/sbin/keepalived /usr/local/sbin/keepalived
 COPY --from=builder /usr/local/etc/keepalived /usr/local/etc/keepalived
 
 WORKDIR /container
+
+# Copy repository files 
 COPY . /container
 
-# Ensure tools are executable
-# We use your original run (python) but our new bash install-service/setuser
-RUN chmod +x /container/tool/run \
-             /container/tool/setuser \
-             /container/tool/install-service
-
-# Run bootstrap
+# Run the bootstrap script 
+# It handles symlinks and internal environment setup
 RUN chmod +x /container/build.sh && /container/build.sh
 
-# Run service installation
+# Install services using the tool provided in the repo [cite: 3]
 RUN /container/tool/install-service
 
-# Back to original Python entrypoint
+# The entrypoint uses the 'run' tool provided in the repository [cite: 4]
 ENTRYPOINT ["/container/tool/run"]

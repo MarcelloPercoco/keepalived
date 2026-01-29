@@ -7,7 +7,8 @@ FROM alpine:${ALPINE_VERSION} AS builder
 ARG KEEPALIVED_VERSION=2.3.4
 
 # Install build dependencies
-RUN apk add --no-cache \
+RUN apk upgrade --no-cache && \
+    apk add --no-cache \
     bash curl gcc musl-dev make linux-headers openssl-dev \
     libnl3-dev iptables-dev ipset-dev libnfnetlink-dev libmnl-dev \
     autoconf automake libtool tar
@@ -37,7 +38,8 @@ FROM alpine:${ALPINE_VERSION}
 # Install runtime dependencies
 # We add iptables-dev ONLY to pull in the symlinks for libip4tc.so and libip6tc.so
 # which are often missing in the bare 'iptables' package on Alpine 3.23
-RUN apk add --no-cache \
+RUN apk upgrade --no-cache && \
+    apk add --no-cache \
     bash \
     curl \
     iproute2 \

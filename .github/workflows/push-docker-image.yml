@@ -70,3 +70,22 @@ jobs: # job name
             type=image
             name=target
             annotation-index.org.opencontainers.image.description=${{ env.DESCRIPTION }}
+
+  cleanup:
+    needs: build-deploy       # ← esegue SOLO dopo la build
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+      contents: read
+
+    steps:
+      - name: lowercase repository
+        run: |
+          echo "IMAGE_NAME=${GITHUB_REPOSITORY@L}" >> $GITHUB_ENV
+
+      - name: Cleanup GHCR (untagged + keep last 3 tags)
+        uses: dataaxiom/ghcr-cleanup-action@v1
+        with:
+          dry-run: false
+          delete-untagged: true
+          keep-n-tagged-images: 3

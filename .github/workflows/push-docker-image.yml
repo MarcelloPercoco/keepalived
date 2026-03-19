@@ -76,14 +76,46 @@ jobs: # job name
     runs-on: ubuntu-latest
     permissions:
       packages: write
+      contents: read
   
     steps:
-      - name: Cleanup GHCR (untagged + keep last 3 real tags)
-        uses: quartx-analytics/ghcr-cleaner@v1
+  
+      - name: Extract tags and compute deletion list
+        id: tags
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          OWNER="${GITHUB_REPOSITORY_OWNER}"
+          IMAGE="${GITHUB_REPOSITORY#*/}"
+  
+          # Recupera tutte le versioni del package
+          RESP=$(curl -s -H "Authorization: Bearer $TOKEN" \
+            "https://api.github.com/users/${OWNER}/packages/container/${IMAGE}/versions?per_page=100")
+  
+          # Estrai tutti i tag reali
+          ALL_TAGS=$(echo "$RESP" | jq -r '.[].metadata.container.tags[]?' | sort -u)
+  
+          echo "Tutti i tag trovati:"
+          echo "$ALL_TAGS"
+  
+          # Tieni solo gli ultimi 3
+          KEEP=$(echo "$ALL_TAGS" | tail -n 3)
+          echo "Tag da tenere:"
+          echo "$KEEP"
+  
+          # Trova tag da eliminare
+          DELETE=$(comm -23 <(echo "$ALL_TAGS") <(echo "$KEEP"))
+          DELETE_CSV=$(echo "$DELETE" | paste -sd "," -)
+  
+          echo "Tag da eliminare:"
+          echo "$DELETE_CSV"
+  
+          echo "DELETE_TAGS=$DELETE_CSV" >> $GITHUB_ENV
+  
+  
+      - name: Cleanup GHCR (untagged + delete old tags)
+        uses: dataaxiom/ghcr-cleanup-action@v1
         with:
-          owner-type: user
-          token: ${{ secrets.GITHUB_TOKEN }}
-          repository-owner: ${{ github.repository_owner }}
-          package-name: ${{ github.event.repository.name }}
+          dry-run: false
           delete-untagged: true
-          keep-at-most: 3
+          delete-tags: ${{ env.DELETE_TAGS }}

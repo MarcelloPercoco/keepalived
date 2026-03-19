@@ -79,7 +79,6 @@ jobs: # job name
       contents: read
   
     steps:
-  
       - name: Extract tags and compute deletion list
         id: tags
         env:
@@ -88,34 +87,37 @@ jobs: # job name
           OWNER="${GITHUB_REPOSITORY_OWNER}"
           IMAGE="${GITHUB_REPOSITORY#*/}"
   
-          # Recupera tutte le versioni del package
+          # Recupera tutte le versioni del package (API GitHub restituisce dalla più recente alla più vecchia)
           RESP=$(curl -s -H "Authorization: Bearer $TOKEN" \
             "https://api.github.com/users/${OWNER}/packages/container/${IMAGE}/versions?per_page=100")
   
-          # Estrai tutti i tag reali
-          ALL_TAGS=$(echo "$RESP" | jq -r '.[].metadata.container.tags[]?' | sort -u)
-  
-          echo "Tutti i tag trovati:"
+          # Estrai tutti i tag nell'esatto ordine Cronologico decrescente restituito dall'API (dal nuovo al vecchio),
+          # rimuoviamo completamente il tag "latest" in modo che non venga MAI preso in considerazione per l'eliminazione,
+          # ed eliminiamo eventuali doppioni mantenendo l'ordine originale tramite awk.
+          ALL_TAGS=$(echo "$RESP" | jq -r '.[].metadata.container.tags[]?' | grep -v '^latest$' | awk '!seen[$0]++')
+          
+          echo "Tutti i tag trovati in ordine cronologico (escluso latest):"
           echo "$ALL_TAGS"
   
-          # Tieni solo gli ultimi 3
-          KEEP=$(echo "$ALL_TAGS" | tail -n 3)
-          echo "Tag da tenere:"
+          # Essendo in ordine decrescente (la 1ª riga è la più recente in assoluto), per tenere i 3 più 'freschi', prendiamo i PRIMI 3.
+          KEEP=$(echo "$ALL_TAGS" | head -n 3)
+          
+          echo "Tag recenti da tenere:"
           echo "$KEEP"
   
-          # Trova tag da eliminare
-          DELETE=$(comm -23 <(echo "$ALL_TAGS") <(echo "$KEEP"))
-          DELETE_CSV=$(echo "$DELETE" | paste -sd "," -)
+          # Trova i tag da eliminare: semplicemente tutto ALL_TAGS escludendo le righe combacianti con KEEP
+          # (L'operatore || true previene che lo step github actions fallisca qualora grep non trovi niente da eliminare)
+          DELETE=$(echo "$ALL_TAGS" | grep -vFxf <(echo "$KEEP") || true)
+          
+          # Converti le multi-linee in una stringa separata da virgole (CSV) per action succesiva.
+          DELETE_CSV=$(echo -n "$DELETE" | tr '\n' ',' | sed 's/,$//')
   
-          echo "Tag da eliminare:"
+          echo "Tag da eliminare (CSV):"
           echo "$DELETE_CSV"
   
-          echo "DELETE_TAGS=$DELETE_CSV" >> $GITHUB_ENV
-  
-  
-      - name: Cleanup GHCR (untagged + delete old tags)
-        uses: dataaxiom/ghcr-cleanup-action@v1
-        with:
-          dry-run: false
-          delete-untagged: true
-          delete-tags: ${{ env.DELETE_TAGS }}
+          # Se in totale abbiamo meno di 4 versioni, non c'è niente da cancellare! Non passiamo la variabile.
+          if [ -n "$DELETE_CSV" ]; then
+            echo "DELETE_TAGS=$DELETE_CSV" >> $GITHUB_ENV
+          else
+            echo "Niente da eliminare, mantenendo tutti gli attuali."
+          fi

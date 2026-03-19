@@ -76,15 +76,14 @@ jobs: # job name
     runs-on: ubuntu-latest
     permissions:
       packages: write
-
+  
     steps:
-      - name: lowercase repository
-        run: |
-          echo "IMAGE_NAME=${GITHUB_REPOSITORY@L}" >> $GITHUB_ENV
-
-      - name: Clean up untagged + keep last 3 real tags
-        uses: hoverkraft-tech/ci-github-container/actions/docker/clean-images@0.28.0
+      - name: Cleanup GHCR (untagged + keep last 3 real tags)
+        uses: quartx-analytics/ghcr-cleaner@v1
         with:
-          package: ${{ env.IMAGE_NAME }}
+          owner-type: user
+          token: ${{ secrets.GITHUB_TOKEN }}
+          repository-owner: ${{ github.repository_owner }}
+          package-name: ${{ github.event.repository.name }}
           delete-untagged: true
           keep-at-most: 3

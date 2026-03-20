@@ -71,7 +71,7 @@ jobs: # job name
             name=target
             annotation-index.org.opencontainers.image.description=${{ env.DESCRIPTION }}
 
-    cleanup:
+   cleanup:
       needs: build-deploy
       runs-on: ubuntu-latest
       permissions:
@@ -84,10 +84,9 @@ jobs: # job name
             # Utilizza il nome della repository corrente in automatico
             package-name: ${{ github.event.repository.name }}
             package-type: 'container'
-            # Mantiene le ultime 3 versioni
-            min-versions-to-keep: 3
-            # Protegge il tag 'latest'
+            # REGOLA D'ORO: Cancella le versioni più vecchie di 30 giorni
+            older-than-number-of-days: 30
+            # Mantieni comunque un minimo di versioni per sicurezza (es. 10 per coprire i vari digest multi-arch)
+            min-versions-to-keep: 10
+            # Non toccare mai il tag latest
             ignore-versions: 'latest'
-            # Nota: Il token viene cercato automaticamente dall'action, 
-            # ma se necessario puoi specificarlo con:
-            # token: ${{ secrets.GITHUB_TOKEN }}

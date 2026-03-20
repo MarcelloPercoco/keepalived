@@ -71,7 +71,7 @@ jobs: # job name
             name=target
             annotation-index.org.opencontainers.image.description=${{ env.DESCRIPTION }}
 
-   cleanup:
+  cleanup:
       needs: build-deploy
       runs-on: ubuntu-latest
       permissions:

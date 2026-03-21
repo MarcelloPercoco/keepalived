@@ -1,7 +1,12 @@
 # ==============================================================================
 # STAGE 1: Builder
 # ==============================================================================
+
+ARG ALPINE_VERSION
+
 FROM alpine:${ALPINE_VERSION} AS builder
+
+ARG KEEPALIVED_VERSION
 
 # Install build dependencies
 RUN apk upgrade --no-cache && \

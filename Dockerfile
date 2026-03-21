@@ -9,38 +9,36 @@ ARG KEEPALIVED_VERSION=2.3.4
 # Install build dependencies
 RUN apk upgrade --no-cache && \
     apk add --no-cache \
-    bash curl gcc musl-dev make linux-headers openssl-dev \
+    curl gcc musl-dev make linux-headers openssl-dev \
     libnl3-dev iptables-dev ipset-dev libnfnetlink-dev libmnl-dev \
     autoconf automake libtool tar
 
 WORKDIR /build
 
-# Download, autogen and compile
+# Download, autogen, compile AND strip debug symbols
 RUN curl -L https://github.com/acassen/keepalived/archive/refs/tags/v${KEEPALIVED_VERSION}.tar.gz -o keepalived.tar.gz \
     && tar -xzf keepalived.tar.gz \
     && cd keepalived-${KEEPALIVED_VERSION} \
     && ./autogen.sh \
     && ./configure \
-        --prefix=/usr \
-        --exec-prefix=/usr \
-        --bindir=/usr/bin \
-        --sbindir=/usr/sbin \
-        --sysconfdir=/etc \
-        --disable-dynamic-linking \
+    --prefix=/usr \
+    --exec-prefix=/usr \
+    --bindir=/usr/bin \
+    --sbindir=/usr/sbin \
+    --sysconfdir=/etc \
+    --disable-dynamic-linking \
     && make \
-    && make install
+    && make install \
+    && strip /usr/sbin/keepalived
 
 # ==============================================================================
 # STAGE 2: Runtime
 # ==============================================================================
 FROM alpine:${ALPINE_VERSION}
 
-# Install runtime dependencies
-# We add iptables-dev ONLY to pull in the symlinks for libip4tc.so and libip6tc.so
-# which are often missing in the bare 'iptables' package on Alpine 3.23
+# Install runtime dependencies, manually link .so to avoid iptables-dev, and check ldd linking
 RUN apk upgrade --no-cache && \
     apk add --no-cache \
-    bash \
     curl \
     iproute2 \
     iputils \
@@ -52,16 +50,17 @@ RUN apk upgrade --no-cache && \
     iptables \
     ipset \
     libxtables \
-    iptables-dev
+    libip4tc \
+    libip6tc && \
+    mkdir -p /etc/keepalived
 
 # Copy binary from builder
-COPY --from=builder /usr/sbin/keepalived /usr/sbin/keepalived
+COPY --link --from=builder /usr/sbin/keepalived /usr/sbin/keepalived
 
-# Copy entrypoint script
-COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+# Copy entrypoint script directly with execution permissions
+COPY --link --chmod=755 entrypoint.sh /entrypoint.sh
 
-# Verify - This must pass now because iptables-dev provides the missing .so files
+# Verify linking (will crash the build if symlinks failed or dependencies are lost)
 RUN ldd /usr/sbin/keepalived
 
 ENTRYPOINT ["/entrypoint.sh"]

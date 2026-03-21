@@ -2,6 +2,8 @@ name: Build-Action  # When pushing to any branch then run this action
 # Env variable
 env:
   DESCRIPTION: "Keepalived image based on Alpine Linux"
+  KEEPALIVED_VERSION: 2.3.4
+  ALPINE_VERSION: 3.23
 
 on:
   workflow_dispatch:
@@ -49,8 +51,8 @@ jobs: # job name
           context: .
           tags: |
             ${{ vars.REPO_NAME }}:latest
-            ${{ vars.REPO_NAME }}:${{ vars.KEEPALIVED_VERSION }}
-            ghcr.io/${{ env.IMAGE_NAME }}:${{ vars.KEEPALIVED_VERSION }}
+            ${{ vars.REPO_NAME }}:${{ env.KEEPALIVED_VERSION }}
+            ghcr.io/${{ env.IMAGE_NAME }}:${{ env.KEEPALIVED_VERSION }}
             ghcr.io/${{ env.IMAGE_NAME }}:latest
           platforms: |
             linux/arm/v7
@@ -60,6 +62,9 @@ jobs: # job name
             MAINTAINER="Marcello Percoco <114474556+MarcelloPercoco@users.noreply.github.com>"
             org.opencontainers.image.source=https://github.com/${{ env.IMAGE_NAME }}
             org.opencontainers.image.description=${{ env.DESCRIPTION }}
+          build-args: |
+            ALPINE_VERSION=${{ env.ALPINE_VERSION }}
+            KEEPALIVED_VERSION=${{ env.KEEPALIVED_VERSION }}
           push: true
           sbom: true
           provenance: mode=max

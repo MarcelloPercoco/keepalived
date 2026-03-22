@@ -8,9 +8,6 @@ FROM alpine:${ALPINE_VERSION} AS builder
 
 ARG KEEPALIVED_VERSION
 
-HEALTHCHECK --interval=15s --timeout=5s --retries=3 \
-    CMD read pid < /var/run/keepalived.pid && kill -0 $pid >/dev/null 2>&1 || exit 1
-
 # Install build dependencies
 RUN apk upgrade --no-cache && \
     apk add --no-cache \
@@ -40,6 +37,9 @@ RUN curl -L https://github.com/acassen/keepalived/archive/refs/tags/v${KEEPALIVE
 # STAGE 2: Runtime
 # ==============================================================================
 FROM alpine:${ALPINE_VERSION}
+
+HEALTHCHECK --interval=15s --timeout=5s --retries=3 \
+    CMD read pid < /var/run/keepalived.pid && kill -0 $pid >/dev/null 2>&1 || exit 1
 
 # Install runtime dependencies, manually link .so to avoid iptables-dev, and check ldd linking
 RUN apk upgrade --no-cache && \

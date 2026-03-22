@@ -8,6 +8,9 @@ FROM alpine:${ALPINE_VERSION} AS builder
 
 ARG KEEPALIVED_VERSION
 
+HEALTHCHECK --interval=15s --timeout=5s --retries=3 \
+    CMD read pid < /var/run/keepalived.pid && kill -0 $pid >/dev/null 2>&1 || exit 1
+
 # Install build dependencies
 RUN apk upgrade --no-cache && \
     apk add --no-cache \

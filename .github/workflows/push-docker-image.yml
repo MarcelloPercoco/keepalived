@@ -92,3 +92,16 @@ jobs: # job name
             min-versions-to-keep: 10
             # Non toccare mai il tag latest
             ignore-versions: 'latest'
+
+  update-dockerhub-description:
+    needs: build-deploy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Update Docker Hub Description
+        uses: peter-evans/dockerhub-description@v4
+        with:
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          repository: ${{ vars.REPO_NAME }}
+          readme-filepath: ./Readme.md

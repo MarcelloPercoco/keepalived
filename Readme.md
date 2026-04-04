@@ -33,7 +33,7 @@ services:
     network_mode: host # Required for VRRP
     environment:
       - STATE=MASTER
-      - INTERFACE=eth0
+      - MYIF=eno1           # Recommended: prioritized over INTERFACE
       - VIRTUAL_IP=192.168.1.100/24
       - PRIORITY=101
       - ROUTER_ID=51
@@ -64,7 +64,8 @@ services:
 | Variable | Description | Default |
 | :--- | :--- | :--- |
 | `STATE` | Initial VRRP state (`MASTER` or `BACKUP`) | `MASTER` |
-| `INTERFACE` | Network interface to bind the VRRP instance | `eth0` |
+| `MYIF` | Primary network interface (takes precedence over `INTERFACE`) | - |
+| `INTERFACE` | Fallback network interface to bind the VRRP instance | `eth0` |
 | `VIRTUAL_IP` | The VIP address (CIDR format recommended) | `192.168.1.1` |
 | `PRIORITY` | VRRP priority value (Higher value = Higher priority) | `100` |
 | `ROUTER_ID` | Unique VRRP Router ID (0-255) | `51` |

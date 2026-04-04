@@ -23,7 +23,7 @@ else
     # Set default values if variables are not provided by Docker Compose/Environment
     STATE=${STATE:-MASTER}
     PRIORITY=${PRIORITY:-100}
-    INTERFACE=${INTERFACE:-eth0}
+    INTERFACE="${MYIF:-${INTERFACE:-eth0}}"
     ROUTER_ID=${ROUTER_ID:-51}
     VIRTUAL_IP=${VIRTUAL_IP:-192.168.1.1}
 
@@ -48,9 +48,8 @@ EOF
 fi
 
 # 3. Wait for network interface readiness
-WAIT_IF="${INTERFACE:-eth0}"
-# If MYIF is present, use it as it's common in this stack
-[ -n "$MYIF" ] && WAIT_IF="$MYIF"
+# Prioritize MYIF (common in this stack) over INTERFACE, default to eth0
+WAIT_IF="${MYIF:-${INTERFACE:-eth0}}"
 
 echo "INFO: Waiting for interface $WAIT_IF to be UP..."
 MAX_TRIES=30

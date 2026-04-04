@@ -66,8 +66,8 @@ jobs: # job name
             ALPINE_VERSION=${{ env.ALPINE_VERSION }}
             KEEPALIVED_VERSION=${{ env.KEEPALIVED_VERSION }}
           push: true
-          sbom: true
-          provenance: mode=max
+          sbom: false
+          provenance: false
           outputs: |
             type=image
             name=target

@@ -3,12 +3,19 @@ set -e
 
 # Path to the final configuration file
 CONF_FILE="/etc/keepalived/keepalived.conf"
+PID_FILE="/var/run/keepalived.pid"
 
 echo "--- Keepalived Startup Process ---"
 
-# Check if a custom configuration file was mounted via volume
-if [ -f "$CONF_FILE" ] && [ ! -L "$CONF_FILE" ]; then
-    echo "INFO: Custom configuration found at $CONF_FILE. Skipping auto-generation."
+# 1. Cleanup stale PID file if any from persistent volumes
+if [ -f "$PID_FILE" ]; then
+    echo "INFO: Cleaning up stale PID file at $PID_FILE..."
+    rm -f "$PID_FILE"
+fi
+
+# 2. Check if a custom configuration file exists (it could be a file or a symlink)
+if [ -e "$CONF_FILE" ]; then
+    echo "INFO: Configuration detected at $CONF_FILE. Skipping auto-generation."
 else
     # Generate a basic configuration using environment variables if no file is provided
     echo "INFO: No custom config detected. Generating configuration from environment variables..."
@@ -40,9 +47,26 @@ EOF
     echo "INFO: Basic configuration generated successfully."
 fi
 
-# Start Keepalived in foreground
-# --dont-fork: Keeps the process in foreground for Docker logs
-# --log-console: Directs logs to stdout/stderr
-# --log-detail: Provides verbose logging for easier debugging
+# 3. Wait for network interface readiness
+WAIT_IF="${INTERFACE:-eth0}"
+# If MYIF is present, use it as it's common in this stack
+[ -n "$MYIF" ] && WAIT_IF="$MYIF"
+
+echo "INFO: Waiting for interface $WAIT_IF to be UP..."
+MAX_TRIES=30
+TRIES=0
+while ! ip link show "$WAIT_IF" | grep -q "UP,LOWER_UP" && [ $TRIES -lt $MAX_TRIES ]; do
+    sleep 1
+    TRIES=$((TRIES + 1))
+    if [ $((TRIES % 10)) -eq 0 ]; then
+        echo "Still waiting for $WAIT_IF ($TRIES/$MAX_TRIES)..."
+    fi
+done
+
+if ! ip link show "$WAIT_IF" | grep -q "UP,LOWER_UP"; then
+    echo "WARNING: Interface $WAIT_IF is not fully UP after $MAX_TRIES seconds. Keepalived might fail."
+fi
+
+# 4. Start Keepalived in foreground
 echo "INFO: Launching Keepalived binary..."
 exec /usr/sbin/keepalived -f "$CONF_FILE" --dont-fork --log-console --log-detail

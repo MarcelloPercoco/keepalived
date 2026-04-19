@@ -57,6 +57,8 @@ RUN apk upgrade --no-cache && \
     libxtables \
     libip4tc \
     libip6tc && \
+    addgroup -S keepalived_script && \
+    adduser -D -S -G keepalived_script keepalived_script && \
     mkdir -p /etc/keepalived
 
 # Copy binary from builder

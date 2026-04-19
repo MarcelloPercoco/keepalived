@@ -13,8 +13,9 @@ A high-performance, ultra-lightweight Keepalived container based on **Alpine Lin
 * **Ultra-lightweight**: ~15MB total size (compared to 100MB+ for Python-based alternatives).
 * **Modern Engine**: Built on Alpine 3.23 with Keepalived 2.3.4.
 * **Hybrid Configuration**: Supports both automatic generation via Environment Variables and custom configuration via Volume mounting.
-* **Real-time Logging**: Logs are natively redirected to `stdout/stderr` for seamless integration with `docker logs`.
-* **CI/CD Ready**: Designed for automated builds via GitHub Actions and GHCR.
+* **Boot-Resilient**: Includes race-condition protection for network interfaces and Docker Config mounts during server reboots.
+* **Real-time Logging**: Logs and diagnostics are natively redirected to `stdout/stderr` for seamless integration with `docker logs`.
+* **Security & Scripting**: Pre-configured with `keepalived_script` user to securely execute healthcheck scripts.
 
 ---
 
@@ -66,9 +67,10 @@ services:
 | `STATE` | Initial VRRP state (`MASTER` or `BACKUP`) | `MASTER` |
 | `MYIF` | Primary network interface (takes precedence over `INTERFACE`) | - |
 | `INTERFACE` | Fallback network interface to bind the VRRP instance | `eth0` |
-| `VIRTUAL_IP` | The VIP address (CIDR format recommended) | `192.168.1.1` |
+| `VIRTUAL_IP` | The VIP address (CIDR format recommended) | - (Required) |
 | `PRIORITY` | VRRP priority value (Higher value = Higher priority) | `100` |
 | `ROUTER_ID` | Unique VRRP Router ID (0-255) | `51` |
+| `DEBUG` | Enable verbose trace (`true` or `false`) | `false` |
 
 ### 🏗 Build & Automation
 ## Local Build
@@ -94,6 +96,15 @@ docker exec -it keepalived cat /etc/keepalived/keepalived.conf
 ```bash
 docker exec -it keepalived ip addr show
 ```
+
+## Reboot Race Conditions
+If this container starts before the network interface or the configuration mount is ready (common during server reboots), it will:
+1. Wait up to **10 seconds** for the configuration file to appear.
+2. Wait up to **60 seconds** for the network interface to be `UP`.
+3. Log full diagnostic information (`ip addr`, `ip route`) before launching the binary.
+
+## Script Execution
+Healthcheck scripts are executed by the `keepalived_script` user for security. Ensure your scripts are readable by this user.
 
 ---
 

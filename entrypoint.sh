@@ -22,6 +22,16 @@ fi
 # If a config is expected via mount, it might not be ready right away on reboot
 MAX_CONF_TRIES=10
 CONF_TRIES=0
+echo "--- Diagnostic: Pre-check ---"
+echo "Current user: $(id)"
+echo "Checking /etc/keepalived directory content:"
+ls -la /etc/keepalived/ || echo "/etc/keepalived NOT found"
+echo "Checking if a standalone /etc/keepalived.conf exists:"
+ls -la /etc/keepalived.conf || echo "/etc/keepalived.conf NOT found"
+echo "Active Keepalived environment variables:"
+env | grep -E "KEEPALIVED|VIRTUAL_IP|MYIF|INTERFACE|STATE|PRIORITY|ROUTER_ID" | sort
+echo "------------------------------"
+
 echo "INFO: Checking for configuration file at $CONF_FILE..."
 while [ ! -e "$CONF_FILE" ] && [ $CONF_TRIES -lt $MAX_CONF_TRIES ]; do
     sleep 1

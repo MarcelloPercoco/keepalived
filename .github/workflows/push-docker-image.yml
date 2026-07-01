@@ -2,7 +2,7 @@ name: Build-Action  # When pushing to any branch then run this action
 # Env variable
 env:
   DESCRIPTION: "Keepalived image based on Alpine Linux"
-  KEEPALIVED_VERSION: 2.3.4
+  KEEPALIVED_VERSION: 2.4.1
   ALPINE_VERSION: 3.23
 
 on:

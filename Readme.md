@@ -11,7 +11,7 @@ A high-performance, ultra-lightweight Keepalived container based on **Alpine Lin
 ## 🚀 Features
 
 * **Ultra-lightweight**: ~15MB total size (compared to 100MB+ for Python-based alternatives).
-* **Modern Engine**: Built on Alpine 3.23 with Keepalived 2.3.4.
+* **Modern Engine**: Built on Alpine 3.23 with Keepalived 2.4.1.
 * **Hybrid Configuration**: Supports both automatic generation via Environment Variables and custom configuration via Volume mounting.
 * **Boot-Resilient**: Includes race-condition protection for network interfaces and Docker Config mounts during server reboots.
 * **Real-time Logging**: Logs and diagnostics are natively redirected to `stdout/stderr` for seamless integration with `docker logs`.

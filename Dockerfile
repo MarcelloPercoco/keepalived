@@ -6,7 +6,7 @@ ARG ALPINE_VERSION=3.23
 
 FROM alpine:${ALPINE_VERSION} AS builder
 
-ARG KEEPALIVED_VERSION=2.3.4
+ARG KEEPALIVED_VERSION=2.4.1
 
 # Install build dependencies
 RUN apk upgrade --no-cache && \

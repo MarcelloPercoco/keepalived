@@ -2,11 +2,11 @@
 # STAGE 1: Builder
 # ==============================================================================
 
-ARG ALPINE_VERSION
+ARG ALPINE_VERSION=3.23
 
 FROM alpine:${ALPINE_VERSION} AS builder
 
-ARG KEEPALIVED_VERSION
+ARG KEEPALIVED_VERSION=2.4.1
 
 # Install build dependencies
 RUN apk upgrade --no-cache && \

@@ -9,6 +9,9 @@ updates:
       time: "09:00"
       timezone: "Europe/Rome"
     open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "github-actions"
     commit-message:
       prefix: "ci"
       include: "scope"
@@ -22,6 +25,9 @@ updates:
       time: "09:00"
       timezone: "Europe/Rome"
     open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "docker"
     commit-message:
       prefix: "docker"
       include: "scope"
